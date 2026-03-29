@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claims Processing System — Architecture & Design</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-2: #242836;
+      --border: #2e3346;
+      --text: #e4e7f1;
+      --text-muted: #8b8fa8;
+      --accent: #6366f1;
+      --accent-light: #818cf8;
+      --green: #22c55e;
+      --green-bg: rgba(34,197,94,0.12);
+      --red: #ef4444;
+      --red-bg: rgba(239,68,68,0.12);
+      --yellow: #eab308;
+      --yellow-bg: rgba(234,179,8,0.12);
+      --blue: #3b82f6;
+      --blue-bg: rgba(59,130,246,0.12);
+      --purple: #a855f7;
+      --purple-bg: rgba(168,85,247,0.12);
+      --cyan: #06b6d4;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent-light), var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.25rem;
+    }
+    .subtitle { color: var(--text-muted); font-size: 1.1rem; margin-bottom: 2.5rem; }
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border);
+    }
+    h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--accent-light); }
+    .section { margin-bottom: 3rem; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .tab {
+      padding: 0.6rem 1.2rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px 8px 0 0;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .tab:hover { color: var(--text); background: var(--surface-2); }
+    .tab.active {
+      background: var(--surface-2);
+      color: var(--accent-light);
+      border-bottom-color: var(--surface-2);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: var(--accent); }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+
+    /* Architecture Diagram */
+    .arch-diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      overflow-x: auto;
+    }
+    .arch-row {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .arch-box {
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-align: center;
+      min-width: 140px;
+      border: 2px solid;
+      position: relative;
+    }
+    .arch-arrow {
+      display: flex;
+      justify-content: center;
+      padding: 0.25rem 0;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+    }
+    .arch-frontend { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); }
+    .arch-controller { background: var(--purple-bg); border-color: var(--purple); color: var(--purple); }
+    .arch-service { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+    .arch-repo { background: var(--yellow-bg); border-color: var(--yellow); color: var(--yellow); }
+    .arch-model { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+    .arch-infra { background: rgba(6,182,212,0.12); border-color: var(--cyan); color: var(--cyan); }
+    .arch-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+
+    /* State Machine */
+    .state-flow {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+    }
+    .state-node {
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .state-arrow { color: var(--text-muted); font-size: 0.9rem; }
+    .state-submitted { background: var(--blue-bg); color: var(--blue); }
+    .state-review { background: var(--yellow-bg); color: var(--yellow); }
+    .state-approved { background: var(--green-bg); color: var(--green); }
+    .state-denied { background: var(--red-bg); color: var(--red); }
+    .state-paid { background: var(--purple-bg); color: var(--purple); }
+    .state-disputed { background: rgba(249,115,22,0.12); color: #f97316; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+    th, td {
+      padding: 0.6rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+    td { color: var(--text); }
+    tr:hover td { background: var(--surface-2); }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-get { background: var(--green-bg); color: var(--green); }
+    .badge-post { background: var(--blue-bg); color: var(--blue); }
+    .badge-done { background: var(--green-bg); color: var(--green); }
+    .badge-progress { background: var(--yellow-bg); color: var(--yellow); }
+    .badge-todo { background: rgba(107,114,128,0.15); color: #6b7280; }
+
+    /* Code */
+    code {
+      background: var(--surface-2);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.8rem;
+    }
+    .mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.85rem; }
+
+    /* Entity Relationship */
+    .er-diagram {
+      display: flex;
+      gap: 1.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 1.5rem 0;
+    }
+    .er-entity {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      min-width: 200px;
+      overflow: hidden;
+    }
+    .er-header {
+      background: var(--surface-2);
+      padding: 0.6rem 1rem;
+      font-weight: 700;
+      font-size: 0.9rem;
+      border-bottom: 2px solid var(--border);
+    }
+    .er-fields { padding: 0.5rem 1rem; }
+    .er-field {
+      font-size: 0.78rem;
+      padding: 0.2rem 0;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .er-field.pk { color: var(--accent-light); font-weight: 600; }
+    .er-field.fk { color: var(--yellow); }
+
+    /* Adjudication Flow */
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .flow-num {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      background: var(--accent);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .flow-content { flex: 1; }
+    .flow-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.15rem; }
+    .flow-desc { font-size: 0.82rem; color: var(--text-muted); }
+
+    /* Progress */
+    .progress-bar {
+      height: 8px;
+      background: var(--surface-2);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+    .progress-green { background: linear-gradient(90deg, var(--green), #4ade80); }
+
+    /* Tech Stack */
+    .tech-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .tech-item:last-child { border-bottom: none; }
+    .tech-name { font-weight: 600; font-size: 0.9rem; }
+    .tech-val { color: var(--accent-light); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Claims Processing System</h1>
+    <p class="subtitle">Insurance claims adjudication engine — architecture & system design</p>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('overview')">Overview</div>
+      <div class="tab" onclick="showTab('architecture')">Architecture</div>
+      <div class="tab" onclick="showTab('domain')">Domain Model</div>
+      <div class="tab" onclick="showTab('adjudication')">Adjudication Engine</div>
+      <div class="tab" onclick="showTab('api')">API Reference</div>
+      <div class="tab" onclick="showTab('progress')">Progress</div>
+    </div>
+
+    <!-- OVERVIEW TAB -->
+    <div id="overview" class="tab-content active">
+      <div class="section">
+        <h2>System Overview</h2>
+        <div class="card-grid">
+          <div class="card">
+            <h3>🎯 Purpose</h3>
+            <p style="font-size:0.9rem;color:var(--text-muted)">Process insurance claims against coverage rules. Determine what's covered, calculate payable amounts, track claim lifecycle, and explain every decision.</p>
+          </div>
+          <div class="card">
+            <h3>⚡ Key Capabilities</h3>
+            <ul style="font-size:0.85rem;color:var(--text-muted);padding-left:1.2rem">
+              <li>Coverage rule evaluation per line item</li>
+              <li>Annual/lifetime limit tracking</li>
+              <li>Deductible application</li>
+              <li>Partial approvals</li>
+              <li>Human-readable denial explanations</li>
+              <li>Claim state machine with dispute flow</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>🏗️ Architecture</h3>
+            <p style="font-size:0.9rem;color:var(--text-muted)">Monorepo (nx) with Express backend (InversifyJS IoC, Sequelize ORM) and Next.js frontend. Layered architecture: Controllers → Services → Repositories → Models.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Tech Stack</h2>
+        <div class="card" style="max-width:500px">
+          <div class="tech-item"><span class="tech-name">Monorepo</span><span class="tech-val">nx</span></div>
+          <div class="tech-item"><span class="tech-name">Backend</span><span class="tech-val">Express + InversifyJS</span></div>
+          <div class="tech-item"><span class="tech-name">ORM</span><span class="tech-val">Sequelize (PostgreSQL)</span></div>
+          <div class="tech-item"><span class="tech-name">Frontend</span><span class="tech-val">Next.js (React)</span></div>
+          <div class="tech-item"><span class="tech-name">Validation</span><span class="tech-val">Joi</span></div>
+          <div class="tech-item"><span class="tech-name">Logging</span><span class="tech-val">Winston</span></div>
+          <div class="tech-item"><span class="tech-name">Language</span><span class="tech-val">TypeScript</span></div>
+          <div class="tech-item"><span class="tech-name">Testing</span><span class="tech-val">Jest</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARCHITECTURE TAB -->
+    <div id="architecture" class="tab-content">
+      <div class="section">
+        <h2>Layered Architecture</h2>
+        <div class="arch-diagram">
+          <div class="arch-label">Client Layer</div>
+          <div class="arch-row">
+            <div class="arch-box arch-frontend">Next.js Frontend</div>
+            <div class="arch-box arch-frontend">cURL / Postman</div>
+          </div>
+          <div class="arch-arrow">↓ HTTP / REST ↓</div>
+
+          <div class="arch-label">HTTP Layer</div>
+          <div class="arch-row">
+            <div class="arch-box arch-controller">ClaimController</div>
+            <div class="arch-box arch-controller">PolicyController</div>
+            <div class="arch-box arch-controller">MemberController</div>
+            <div class="arch-box arch-controller">HealthCheck</div>
+          </div>
+          <div class="arch-arrow">↓ inject ↓</div>
+
+          <div class="arch-label">Business Logic Layer</div>
+          <div class="arch-row">
+            <div class="arch-box arch-service">ClaimService</div>
+            <div class="arch-box arch-service">AdjudicationService</div>
+            <div class="arch-box arch-service">PolicyService</div>
+            <div class="arch-box arch-service">MemberService</div>
+          </div>
+          <div class="arch-arrow">↓ inject ↓</div>
+
+          <div class="arch-label">Data Access Layer</div>
+          <div class="arch-row">
+            <div class="arch-box arch-repo">ClaimDal</div>
+            <div class="arch-box arch-repo">PolicyDal</div>
+            <div class="arch-box arch-repo">MemberDal</div>
+            <div class="arch-box arch-repo">CoverageRuleDal</div>
+          </div>
+          <div class="arch-arrow">↓ Sequelize ORM ↓</div>
+
+          <div class="arch-label">Persistence Layer</div>
+          <div class="arch-row">
+            <div class="arch-box arch-model">Member</div>
+            <div class="arch-box arch-model">Policy</div>
+            <div class="arch-box arch-model">CoverageRule</div>
+            <div class="arch-box arch-model">Claim</div>
+            <div class="arch-box arch-model">LineItem</div>
+          </div>
+          <div class="arch-arrow">↓</div>
+          <div class="arch-row">
+            <div class="arch-box arch-infra" style="min-width:280px">PostgreSQL Database</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Cross-Cutting Concerns</h2>
+        <div class="card-grid">
+          <div class="card">
+            <h3>🔌 IoC Container</h3>
+            <p style="font-size:0.85rem;color:var(--text-muted)">InversifyJS with <code>@controller</code>, <code>@provideSingleton</code> decorators. Auto-discovery via barrel imports.</p>
+          </div>
+          <div class="card">
+            <h3>✅ Validation</h3>
+            <p style="font-size:0.85rem;color:var(--text-muted)">Joi schemas validate request payloads in controllers before reaching services.</p>
+          </div>
+          <div class="card">
+            <h3>📝 Logging</h3>
+            <p style="font-size:0.85rem;color:var(--text-muted)">Winston with structured log levels, timestamps, and colored console output.</p>
+          </div>
+          <div class="card">
+            <h3>🚨 Error Handling</h3>
+            <p style="font-size:0.85rem;color:var(--text-muted)"><code>AppError</code> factory with static methods. Global Express error handler serializes to JSON.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOMAIN MODEL TAB -->
+    <div id="domain" class="tab-content">
+      <div class="section">
+        <h2>Entity Relationship Diagram</h2>
+        <div class="er-diagram">
+          <div class="er-entity">
+            <div class="er-header" style="border-color:var(--blue)">👤 Member</div>
+            <div class="er-fields">
+              <div class="er-field pk">🔑 id: INTEGER PK</div>
+              <div class="er-field">first_name: STRING</div>
+              <div class="er-field">last_name: STRING</div>
+              <div class="er-field">email: STRING UNIQUE</div>
+              <div class="er-field">date_of_birth: DATE</div>
+            </div>
+          </div>
+          <div class="er-entity">
+            <div class="er-header" style="border-color:var(--green)">📋 Policy</div>
+            <div class="er-fields">
+              <div class="er-field pk">🔑 id: INTEGER PK</div>
+              <div class="er-field fk">🔗 member_id: FK → Member</div>
+              <div class="er-field">policy_number: STRING</div>
+              <div class="er-field">effective_date: DATE</div>
+              <div class="er-field">expiration_date: DATE</div>
+              <div class="er-field">is_active: BOOLEAN</div>
+              <div class="er-field">annual_deductible: DECIMAL</div>
+              <div class="er-field">annual_max_benefit: DECIMAL</div>
+            </div>
+          </div>
+          <div class="er-entity">
+            <div class="er-header" style="border-color:var(--yellow)">📏 CoverageRule</div>
+            <div class="er-fields">
+              <div class="er-field pk">🔑 id: INTEGER PK</div>
+              <div class="er-field fk">🔗 policy_id: FK → Policy</div>
+              <div class="er-field">service_type: ENUM</div>
+              <div class="er-field">is_covered: BOOLEAN</div>
+              <div class="er-field">coverage_percentage: DECIMAL</div>
+              <div class="er-field">max_amount: DECIMAL</div>
+              <div class="er-field">limit_period: ENUM</div>
+              <div class="er-field">requires_pre_auth: BOOLEAN</div>
+            </div>
+          </div>
+          <div class="er-entity">
+            <div class="er-header" style="border-color:var(--purple)">📄 Claim</div>
+            <div class="er-fields">
+              <div class="er-field pk">🔑 id: INTEGER PK</div>
+              <div class="er-field fk">🔗 member_id: FK → Member</div>
+              <div class="er-field fk">🔗 policy_id: FK → Policy</div>
+              <div class="er-field">claim_number: STRING</div>
+              <div class="er-field">provider_name: STRING</div>
+              <div class="er-field">diagnosis_code: STRING</div>
+              <div class="er-field">date_of_service: DATE</div>
+              <div class="er-field">status: ENUM (state machine)</div>
+              <div class="er-field">total_amount: DECIMAL</div>
+              <div class="er-field">approved_amount: DECIMAL</div>
+              <div class="er-field">paid_amount: DECIMAL</div>
+            </div>
+          </div>
+          <div class="er-entity">
+            <div class="er-header" style="border-color:var(--red)">📝 LineItem</div>
+            <div class="er-fields">
+              <div class="er-field pk">🔑 id: INTEGER PK</div>
+              <div class="er-field fk">🔗 claim_id: FK → Claim</div>
+              <div class="er-field">service_type: ENUM</div>
+              <div class="er-field">description: STRING</div>
+              <div class="er-field">billed_amount: DECIMAL</div>
+              <div class="er-field">approved_amount: DECIMAL</div>
+              <div class="er-field">status: ENUM</div>
+              <div class="er-field">denial_reason: ENUM</div>
+              <div class="er-field">explanation: TEXT</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>State Machines</h2>
+        <div class="card">
+          <h3>Claim Lifecycle</h3>
+          <div class="state-flow">
+            <span class="state-node state-submitted">SUBMITTED</span>
+            <span class="state-arrow">→</span>
+            <span class="state-node state-review">UNDER_REVIEW</span>
+            <span class="state-arrow">→</span>
+            <span class="state-node state-approved">APPROVED</span>
+            <span class="state-arrow">→</span>
+            <span class="state-node state-paid">PAID</span>
+          </div>
+          <div class="state-flow">
+            <span style="width:280px;display:inline-block"></span>
+            <span class="state-arrow">↘</span>
+            <span class="state-node state-approved" style="background:rgba(234,179,8,0.12);color:var(--yellow)">PARTIALLY_APPROVED</span>
+            <span class="state-arrow">→</span>
+            <span class="state-node state-paid">PAID</span>
+          </div>
+          <div class="state-flow">
+            <span style="width:280px;display:inline-block"></span>
+            <span class="state-arrow">↘</span>
+            <span class="state-node state-denied">DENIED</span>
+          </div>
+          <div class="state-flow" style="margin-top:1rem">
+            <span class="state-node" style="background:rgba(107,114,128,0.15);color:#9ca3af;font-size:0.75rem">Any non-terminal</span>
+            <span class="state-arrow">→</span>
+            <span class="state-node state-disputed">DISPUTED</span>
+            <span class="state-arrow">→</span>
+            <span class="state-node state-review">UNDER_REVIEW</span>
+            <span class="state-arrow">(re-adjudicate)</span>
+          </div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+          <h3>Line Item States</h3>
+          <div class="state-flow">
+            <span class="state-node state-review" style="background:rgba(107,114,128,0.15);color:#9ca3af">PENDING</span>
+            <span class="state-arrow">→</span>
+            <span class="state-node state-approved">APPROVED</span>
+            <span style="font-size:0.8rem;color:var(--text-muted)">(with amount + explanation)</span>
+          </div>
+          <div class="state-flow">
+            <span style="width:80px;display:inline-block"></span>
+            <span class="state-arrow">↘</span>
+            <span class="state-node state-denied">DENIED</span>
+            <span style="font-size:0.8rem;color:var(--text-muted)">(with reason + explanation)</span>
+          </div>
+          <div class="state-flow">
+            <span style="width:80px;display:inline-block"></span>
+            <span class="state-arrow">↘</span>
+            <span class="state-node state-review">UNDER_REVIEW</span>
+            <span style="font-size:0.8rem;color:var(--text-muted)">(pre-auth required)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADJUDICATION ENGINE TAB -->
+    <div id="adjudication" class="tab-content">
+      <div class="section">
+        <h2>Adjudication Engine Flow</h2>
+        <div class="card">
+          <div class="flow-step">
+            <div class="flow-num">1</div>
+            <div class="flow-content">
+              <div class="flow-title">Policy Validation</div>
+              <div class="flow-desc">Check <code>is_active</code>, verify <code>date_of_service</code> falls within <code>effective_date</code>–<code>expiration_date</code>. If invalid → deny entire claim with <code>POLICY_INACTIVE</code>.</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">2</div>
+            <div class="flow-content">
+              <div class="flow-title">Coverage Rule Lookup</div>
+              <div class="flow-desc">For each line item, find matching <code>CoverageRule</code> by <code>service_type</code>. No match → deny with <code>NOT_COVERED</code>.</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">3</div>
+            <div class="flow-content">
+              <div class="flow-title">Coverage Check</div>
+              <div class="flow-desc">If <code>is_covered = false</code> → deny with <code>NOT_COVERED</code>. If <code>requires_pre_auth = true</code> → flag <code>UNDER_REVIEW</code>.</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">4</div>
+            <div class="flow-content">
+              <div class="flow-title">Amount Calculation</div>
+              <div class="flow-desc"><code>approved = min(billed_amount, max_amount) × coverage_percentage</code></div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">5</div>
+            <div class="flow-content">
+              <div class="flow-title">Limit Tracking</div>
+              <div class="flow-desc">Sum previously approved amounts for same <code>service_type</code> within the <code>limit_period</code>. If <code>used + approved > max_amount</code> → approve remaining or deny with <code>LIMIT_EXCEEDED</code>.</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">6</div>
+            <div class="flow-content">
+              <div class="flow-title">Deductible Application</div>
+              <div class="flow-desc">Track annual deductible consumed. Reduce approved amount by remaining deductible. Explanation shows deductible impact.</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">7</div>
+            <div class="flow-content">
+              <div class="flow-title">Explanation Generation</div>
+              <div class="flow-desc">Every line item gets a human-readable explanation: <em>"Consultation covered at 80% of $150.00. Approved: $120.00"</em> or <em>"Vision services not covered under your policy"</em>.</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">8</div>
+            <div class="flow-content">
+              <div class="flow-title">Claim Status Resolution</div>
+              <div class="flow-desc">All approved → <code>APPROVED</code>. Mix → <code>PARTIALLY_APPROVED</code>. All denied → <code>DENIED</code>. Any under review → <code>UNDER_REVIEW</code>.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- API REFERENCE TAB -->
+    <div id="api" class="tab-content">
+      <div class="section">
+        <h2>REST API Endpoints</h2>
+        <div class="card">
+          <h3>Members</h3>
+          <table>
+            <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge badge-post">POST</span></td><td class="mono">/api/v1/members</td><td>Create a new member</td></tr>
+              <tr><td><span class="badge badge-get">GET</span></td><td class="mono">/api/v1/members</td><td>List all members</td></tr>
+              <tr><td><span class="badge badge-get">GET</span></td><td class="mono">/api/v1/members/:id</td><td>Get member with policy</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>Policies</h3>
+          <table>
+            <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge badge-post">POST</span></td><td class="mono">/api/v1/policies</td><td>Create policy with coverage rules</td></tr>
+              <tr><td><span class="badge badge-get">GET</span></td><td class="mono">/api/v1/policies</td><td>List all policies</td></tr>
+              <tr><td><span class="badge badge-get">GET</span></td><td class="mono">/api/v1/policies/:id</td><td>Get policy with coverage rules</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>Claims</h3>
+          <table>
+            <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge badge-post">POST</span></td><td class="mono">/api/v1/claims</td><td>Submit claim with line items</td></tr>
+              <tr><td><span class="badge badge-get">GET</span></td><td class="mono">/api/v1/claims</td><td>List claims (filterable by status)</td></tr>
+              <tr><td><span class="badge badge-get">GET</span></td><td class="mono">/api/v1/claims/:id</td><td>Get claim with adjudication details</td></tr>
+              <tr><td><span class="badge badge-post">POST</span></td><td class="mono">/api/v1/claims/:id/adjudicate</td><td>Trigger adjudication engine</td></tr>
+              <tr><td><span class="badge badge-post">POST</span></td><td class="mono">/api/v1/claims/:id/transition</td><td>State transition (e.g. approve → paid)</td></tr>
+              <tr><td><span class="badge badge-post">POST</span></td><td class="mono">/api/v1/claims/:id/dispute</td><td>Dispute a claim decision</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>System</h3>
+          <table>
+            <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge badge-get">GET</span></td><td class="mono">/api/v1/health</td><td>Health check</td></tr>
+              <tr><td><span class="badge badge-post">POST</span></td><td class="mono">/api/v1/seed</td><td>Seed demo data</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROGRESS TAB -->
+    <div id="progress" class="tab-content">
+      <div class="section">
+        <h2>Implementation Progress</h2>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem">
+            <span style="font-weight:600">Overall</span>
+            <span style="color:var(--text-muted);font-size:0.85rem" id="progress-pct">100%</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill progress-green" id="progress-bar" style="width:100%"></div></div>
+        </div>
+        <div class="card-grid" style="margin-top:1rem">
+          <div class="card" style="grid-column: 1 / -1;">
+            <h3>✅ Completed</h3>
+            <ul style="font-size:0.82rem;color:var(--text-muted);padding-left:1.2rem;line-height:1.8;columns:2">
+              <li>Project scaffolding & tooling</li>
+              <li>Layered architecture skeleton</li>
+              <li>Monorepo restructure (nx)</li>
+              <li>Shared enums & interfaces</li>
+              <li>PostgreSQL DB initialization</li>
+              <li>InversifyJS IoC container (Symbol-based DI)</li>
+              <li>Health check endpoint</li>
+              <li>Logger & error utilities</li>
+              <li>Sequelize models (5 entities)</li>
+              <li>Service implementations (4 services)</li>
+              <li>Controller + validators (3 controllers)</li>
+              <li>Adjudication engine (Rules, Deductibles, Limits)</li>
+              <li>Idempotent Seed data</li>
+              <li>Next.js frontend (UI & State transitions)</li>
+              <li>Context document & Architecture HTML</li>
+              <li>End-to-End API Test Suite (51/51 Pass)</li>
+              <li>Documentation updates (domain-model, decisions)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>
